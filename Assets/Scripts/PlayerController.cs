@@ -5,10 +5,12 @@ public class PlayerController : MonoBehaviour {
 
 	[HideInInspector] public bool jump;
 
-	public float moveForce = 365f;
-	public float jumpForce = 1000f;
-	public float maxSpeed = 5f;
-	public Transform groundCheck;
+	public float moveForce;
+	public float jumpForce;
+	public float maxSpeed;
+	public float friction;
+	public Transform groundCheck1;
+	public Transform groundCheck2;
 
 	private bool grounded = false;
 	private Rigidbody2D rb2d;
@@ -18,7 +20,7 @@ public class PlayerController : MonoBehaviour {
 	}
 
 	void Update() {
-		grounded = Physics2D.Linecast(transform.position, groundCheck.position, 1 << LayerMask.NameToLayer("Ground"));
+		grounded = Physics2D.Linecast(transform.position, groundCheck1.position, 1 << LayerMask.NameToLayer("Ground")) || Physics2D.Linecast(transform.position, groundCheck2.position, 1 << LayerMask.NameToLayer("Ground"));
 
 		if(Input.GetButtonDown("Jump") && grounded) {
 			jump = true;
@@ -45,6 +47,14 @@ public class PlayerController : MonoBehaviour {
 			Physics2D.IgnoreLayerCollision(LayerMask.NameToLayer("Player"), LayerMask.NameToLayer("Ground"), true);
 		} else {
 			Physics2D.IgnoreLayerCollision(LayerMask.NameToLayer("Player"), LayerMask.NameToLayer("Ground"), false);
+		}
+
+		Debug.Log(h);
+
+		if(Mathf.Abs(h) < 0.5) {
+			Vector2 vel = rb2d.velocity;
+			vel.x = rb2d.velocity.x * friction;
+			rb2d.velocity = vel;
 		}
 	}
 }
