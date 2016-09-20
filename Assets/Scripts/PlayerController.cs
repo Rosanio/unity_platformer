@@ -8,15 +8,19 @@ public class PlayerController : MonoBehaviour {
 
 	public float moveForce;
 	public float jumpForce;
+	public float aerialForce;
 	public float maxSpeed;
 	public float friction;
 	public float maxSlideSpeed;
 	public Transform groundCheck1;
 	public Transform groundCheck2;
-	public Transform wallCheck;
+	public Transform wallCheckRight;
+	public Transform wallCheckLeft;
 
 	private bool grounded = false;
 	private bool sliding = false;
+	private bool slidingRight;
+	private bool walljumping = false;
 	private Rigidbody2D rb2d;
 
 	void Awake () {
@@ -26,27 +30,39 @@ public class PlayerController : MonoBehaviour {
 	void Update() {
 		grounded = Physics2D.Linecast(transform.position, groundCheck1.position, 1 << LayerMask.NameToLayer("Ground")) || Physics2D.Linecast(transform.position, groundCheck2.position, 1 << LayerMask.NameToLayer("Ground"));
 
-		sliding = Physics2D.Linecast(transform.position, wallCheck.position, 1 << LayerMask.NameToLayer("Wall"));
+		sliding = (Physics2D.Linecast(transform.position, wallCheckRight.position, 1 << LayerMask.NameToLayer("Wall")) || Physics2D.Linecast(transform.position, wallCheckLeft.position, 1 << LayerMask.NameToLayer("Wall"))) && !grounded;
+
+		if(sliding) {
+			slidingRight = Physics2D.Linecast(transform.position, wallCheckRight.position, 1 << LayerMask.NameToLayer("Wall"));
+		}
 
 		if(Input.GetButtonDown("Jump") && grounded) {
 			jump = true;
 		}
-
-		// if(Input.GetButtonDown("Jump") && sliding) {
-		// 	Debug.Log("wall jumping");
-		// 	wallJump = true;
-		// }
 	}
 
 	void FixedUpdate() {
-		float h = Input.GetAxis("Horizontal");
+		float h = 0;
 
-		if(h*rb2d.velocity.x < maxSpeed) {
-			rb2d.AddForce(Vector2.right * h * moveForce);
+		if(grounded || sliding) {
+			walljumping = false;
 		}
 
-		if((Mathf.Abs(rb2d.velocity.x) > maxSpeed) && grounded) {
+		h = Input.GetAxis("Horizontal");
+		if(h*rb2d.velocity.x < maxSpeed) {
+			if(walljumping) {
+				rb2d.AddForce(Vector2.right * h * aerialForce);
+			} else {
+				rb2d.AddForce(Vector2.right * h * moveForce);
+			}
+		}
+
+		if((Mathf.Abs(rb2d.velocity.x) > maxSpeed)) {
 			rb2d.velocity = new Vector2(Mathf.Sign(rb2d.velocity.x)*maxSpeed, rb2d.velocity.y);
+		}
+
+		if(rb2d.velocity.y > maxSpeed) {
+			rb2d.velocity = new Vector2(rb2d.velocity.x, maxSpeed);
 		}
 
 		if(sliding) {
@@ -55,10 +71,14 @@ public class PlayerController : MonoBehaviour {
 				vel.y = -maxSlideSpeed;
 				rb2d.velocity = vel;
 			}
-			//Add different options for wall jumping based on player input, such as in platformer tutorial video
-			if(Input.GetButtonDown("Jump")) {
-				rb2d.AddForce(new Vector2(-2*jumpForce, jumpForce));
 
+			if(Input.GetButtonDown("Jump")) {
+				if(slidingRight) {
+					rb2d.AddForce(new Vector2(-jumpForce, jumpForce));
+				} else {
+					rb2d.AddForce(new Vector2(jumpForce, jumpForce));
+				}
+				walljumping = true;
 			}
 		}
 
@@ -73,15 +93,7 @@ public class PlayerController : MonoBehaviour {
 			Physics2D.IgnoreLayerCollision(LayerMask.NameToLayer("Player"), LayerMask.NameToLayer("Ground"), false);
 		}
 
-		// if(rb2d.velocity.y == 0) {
-		// 	if(!grounded) {
-		// 		sliding = true;
-		// 	} else {
-		// 		sliding = false;
-		// 	}
-		// }
-
-		if(Mathf.Abs(h) < 0.75) {
+		if(Mathf.Abs(h) < 0.75 && grounded) {
 			Vector2 vel = rb2d.velocity;
 			vel.x = rb2d.velocity.x * friction;
 			rb2d.velocity = vel;
