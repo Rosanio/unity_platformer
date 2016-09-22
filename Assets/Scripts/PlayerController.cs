@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-using System.Collections;
+using System;
 
 public class PlayerController : MonoBehaviour {
 
@@ -12,23 +12,43 @@ public class PlayerController : MonoBehaviour {
 	public float maxSpeed;
 	public float friction;
 	public float maxSlideSpeed;
-	public Transform groundCheck1;
-	public Transform groundCheck2;
+	public Transform[] groundChecks;
 	public Transform wallCheckRight;
 	public Transform wallCheckLeft;
 
 	private bool grounded = false;
 	private bool sliding = false;
+	private bool groundedTranslucent;
 	private bool slidingRight;
 	private bool walljumping = false;
 	private Rigidbody2D rb2d;
+	private String[] groundTags = {"Ground", "Translucent"};
+	private BoxCollider2D currentPlatformCollider;
+	private BoxCollider2D ignoredPlatformCollider;
+	private float ignorePlatformCollisionTime = 0.3f;
+	private float startIgnorePlatformCollision;
 
 	void Awake () {
 		rb2d = GetComponent<Rigidbody2D>();
 	}
 
 	void Update() {
-		grounded = Physics2D.Linecast(transform.position, groundCheck1.position, 1 << LayerMask.NameToLayer("Ground")) || Physics2D.Linecast(transform.position, groundCheck2.position, 1 << LayerMask.NameToLayer("Ground"));
+		for(int i = 0; i < groundChecks.Length; i++) {
+			for(int j = 0; j < groundTags.Length; j++) {
+				grounded = Physics2D.Linecast(transform.position, groundChecks[i].position, 1 << LayerMask.NameToLayer(groundTags[j]));
+				if(grounded) {
+					currentPlatformCollider = (BoxCollider2D) Physics2D.Linecast(transform.position, groundChecks[i].position, 1 << LayerMask.NameToLayer(groundTags[j])).collider;
+					if(groundTags[j] == "Translucent") {
+						groundedTranslucent = true;
+					} else {
+						groundedTranslucent = false;
+					}
+					break;
+				} else {
+					groundedTranslucent = false;
+				}
+			}
+		}
 
 		sliding = (Physics2D.Linecast(transform.position, wallCheckRight.position, 1 << LayerMask.NameToLayer("Wall")) || Physics2D.Linecast(transform.position, wallCheckLeft.position, 1 << LayerMask.NameToLayer("Wall"))) && !grounded;
 
@@ -50,7 +70,7 @@ public class PlayerController : MonoBehaviour {
 
 		h = Input.GetAxis("Horizontal");
 		if(h*rb2d.velocity.x < maxSpeed) {
-			if(walljumping) {
+			if(!grounded) {
 				rb2d.AddForce(Vector2.right * h * aerialForce);
 			} else {
 				rb2d.AddForce(Vector2.right * h * moveForce);
@@ -83,20 +103,39 @@ public class PlayerController : MonoBehaviour {
 		}
 
 		if(jump) {
-			rb2d.AddForce(new Vector2(0f, jumpForce));
+			if(groundedTranslucent && Input.GetKey(KeyCode.DownArrow)) {
+				ignoredPlatformCollider = currentPlatformCollider;
+				startIgnorePlatformCollision = Time.time;
+				Physics2D.IgnoreCollision(gameObject.GetComponent<BoxCollider2D>(), currentPlatformCollider, true);
+			} else {
+				rb2d.AddForce(new Vector2(0f, jumpForce));
+			}
 			jump = false;
 		}
 
-		if(rb2d.velocity.y > 0) {
-			Physics2D.IgnoreLayerCollision(LayerMask.NameToLayer("Player"), LayerMask.NameToLayer("Ground"), true);
-		} else {
-			Physics2D.IgnoreLayerCollision(LayerMask.NameToLayer("Player"), LayerMask.NameToLayer("Ground"), false);
+		if(ignoredPlatformCollider != null) {
+			if(Time.time - startIgnorePlatformCollision > ignorePlatformCollisionTime) {
+				Physics2D.IgnoreCollision(gameObject.GetComponent<BoxCollider2D>(), ignoredPlatformCollider, false);
+				ignoredPlatformCollider = null;
+			}
 		}
 
 		if(Mathf.Abs(h) < 0.75 && grounded) {
 			Vector2 vel = rb2d.velocity;
 			vel.x = rb2d.velocity.x * friction;
 			rb2d.velocity = vel;
+		}
+	}
+
+	void OnTriggerEnter2D(Collider2D other) {
+		if(other.gameObject.layer == LayerMask.NameToLayer("Translucent")) {
+			Physics2D.IgnoreLayerCollision(LayerMask.NameToLayer("Player"), LayerMask.NameToLayer("Translucent"), true);
+		}
+	}
+
+	void OnTriggerExit2D(Collider2D other) {
+		if(other.gameObject.layer == LayerMask.NameToLayer("Translucent")) {
+			Physics2D.IgnoreLayerCollision(LayerMask.NameToLayer("Player"), LayerMask.NameToLayer("Translucent"), false);
 		}
 	}
 }
