@@ -8,6 +8,7 @@ public class PlayerController : MonoBehaviour {
 
 	public float moveForce;
 	public float jumpForce;
+	public float wallJumpingForce;
 	public float aerialForce;
 	public float maxSpeed;
 	public float friction;
@@ -70,7 +71,9 @@ public class PlayerController : MonoBehaviour {
 
 		h = Input.GetAxis("Horizontal");
 		if(h*rb2d.velocity.x < maxSpeed) {
-			if(!grounded) {
+			if(walljumping) {
+				rb2d.AddForce(Vector2.right * h * wallJumpingForce);
+			} else if(!grounded) {
 				rb2d.AddForce(Vector2.right * h * aerialForce);
 			} else {
 				rb2d.AddForce(Vector2.right * h * moveForce);
